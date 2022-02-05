@@ -28,14 +28,14 @@ export default new Vuex.Store({
       localStorage.setItem("avatar", avatar)
     },
     REMOVE_INFO: state => {
-      state.id = ''
-      state.nick_name = ''
-      state.token = ''
-      state.avatar = ''
-      localStorage.setItem("id", '')
-      localStorage.setItem("nick_name", '')
-      localStorage.setItem("token", '')
-      localStorage.setItem("avatar", '')
+      state.id = null
+      state.nick_name = null
+      state.token = null
+      state.avatar = null
+      localStorage.removeItem("id")
+      localStorage.removeItem("nick_name")
+      localStorage.removeItem("token")
+      localStorage.removeItem("avatar")
     }
   },
   getters: {

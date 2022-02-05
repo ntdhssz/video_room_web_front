@@ -1,12 +1,10 @@
 import axios from "axios";
-import store from '@/store'
 
 const service = axios.create()
-
 service.interceptors.request.use(
   config => {
     config.headers['token'] = localStorage.getItem("token")
-    console.log(localStorage.getItem("token"))
+    config.headers['agent'] = 'pc'
     return config
   },
   error => {
@@ -17,7 +15,6 @@ service.interceptors.request.use(
 
 axios.interceptors.response.use(response => {
     let res = response.data;
-    console.log(res)
 
     if (res.code === 200) {
       return response

@@ -7,6 +7,8 @@ import ElementUI from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 import qs from 'qs'
 import store from './store'
+import { authCheck } from "./api/authCheck";
+import Header from "./views/Header";
 
 Vue.config.productionTip = false
 
@@ -14,8 +16,8 @@ Vue.use(ElementUI)
 var axios = require('axios')
 Vue.prototype.$axios = axios
 Vue.prototype.$qs = qs
+Vue.component("Header", Header)
 
-import { authCheck } from "./api/authCheck";
 router.beforeEach((to, from, next) => {
   if (to.meta.requireAuth) {
     let token = store.state.token
