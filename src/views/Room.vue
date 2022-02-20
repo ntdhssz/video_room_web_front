@@ -277,6 +277,7 @@ export default {
         }, 2000)
       } else {
         this.socket.send(JSON.stringify(chatInfo))
+        this.chatText = ''
       }
     },
     onPlayerStateChanged(event) {
