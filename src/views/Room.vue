@@ -211,7 +211,8 @@ export default {
                     msgBox.scrollTop = msgBox.scrollHeight
                   }
                 })
-                _this.roomUserList.splice(index)
+                console.log(value, index)
+                _this.roomUserList.splice(index, 1)
               }
             })
 
