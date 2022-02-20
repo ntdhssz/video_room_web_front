@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "webpack-dev-server --inline --progress --config build/webpack.dev.conf.js",
+    "prod": "webpack-dev-server --inline --progress --config build/webpack.prod.conf.js",
     "start": "npm run dev",
     "unit": "jest --config test/unit/jest.conf.js --coverage",
     "e2e": "node test/e2e/runner.js",
@@ -15,9 +16,18 @@
   "dependencies": {
     "axios": "^0.25.0",
     "element-ui": "^2.15.6",
+    "js-md5": "^0.7.3",
+    "md5-node": "^1.0.1",
     "qs": "^6.10.3",
+    "socket.io": "^4.4.1",
+    "socket.io-client": "^4.4.1",
+    "video.js": "^7.17.0",
+    "videojs-contrib-hls": "^5.15.0",
+    "videojs-flash": "^2.2.1",
     "vue": "^2.5.2",
     "vue-router": "^3.0.1",
+    "vue-socket.io": "^3.0.10",
+    "vue-video-player": "^5.0.2",
     "vuex": "^3.6.2"
   },
   "devDependencies": {

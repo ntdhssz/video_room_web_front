@@ -16,9 +16,32 @@
         >
           {{ item.title }}
         </el-menu-item>
+        <el-menu-item
+          v-if="this.$route.path.toString().search(/\/room\/[0-9][0-9]*/i) !== -1"
+          :key="6"
+          :index="this.$route.path"
+        >
+          观影室
+        </el-menu-item>
+        <el-menu-item
+          v-if="this.is_login"
+          style="float: right"
+          key="5"
+          index="/room/create"
+        >
+          创建房间
+        </el-menu-item>
+        <el-menu-item
+          v-if="this.is_login"
+          style="float: right"
+          key="/room/my"
+          index="/room/my"
+        >
+          我的
+        </el-menu-item>
         <div
           v-if="this.is_login"
-          style="float: right; margin-right: 20px; margin-top: 5px;"
+          style="float: right; margin-top: 5px;"
         >
           <el-dropdown
             @command="user_menu"
@@ -47,14 +70,6 @@
             登录
           </el-button>
         </router-link>
-        <el-menu-item
-          v-if="this.is_login"
-          style="float: right"
-          key="5"
-          index="/#4"
-        >
-          创建房间
-        </el-menu-item>
       </el-menu>
     </el-header>
     <el-main>
@@ -77,8 +92,7 @@ export default {
         {index: "/index", title: "首页"},
         {index: "/index?type=1", title: "电影"},
         {index: "/index?type=2", title: "动画"},
-        {index: "/hello", title: "聊天室"},
-        {index: "/#3", title: "我的"},
+        {index: "/chat", title: "聊天室"},
       ]
     }
   },
@@ -119,21 +133,3 @@ export default {
   }
 }
 </script>
-
-<style>
-.nav-logo {
-  position: absolute;
-  padding-top: -1%;
-  left: 5%;
-  font-size: 40px;
-}
-
-.head-title {
-  position: absolute;
-  padding-top: 20px;
-  font-size: 20px;
-  border: none;
-  width: 50%;
-}
-
-</style>

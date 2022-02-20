@@ -77,11 +77,15 @@ export default {
         _this.$store.commit('SET_ID', data.id)
         _this.$store.commit('SET_NICK_NAME', data.nick_name)
         _this.$store.commit('SET_AVATAR', data.avatar)
-        _this.$router.replace({path: '/index'})
+        let redirect = _this.$route.query.redirect
+        if (typeof redirect === 'undefined') {
+          _this.$router.replace({path: '/index'})
+        } else {
+          _this.$router.replace(redirect.toString())
+        }
       }).catch(error_message => {
         _this.$store.commit('REMOVE_INFO')
         _this.$message.error(error_message)
-        console.log(error_message)
       })
     }
   },
