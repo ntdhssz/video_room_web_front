@@ -125,7 +125,7 @@ export default {
     }, 3000)
     this.$nextTick(function () {
       _this.getRoomInfo(this.$route.params.id)
-      _this.socket = new WebSocket('ws://local.bricktool.top/ws')
+      _this.socket = new WebSocket('ws://video_room.bricktool.top/ws')
       _this.socket.onmessage = function (message) {
         let videoPlayer = _this.$refs.videoPlayer.player
         let response = JSON.parse(message.data)
