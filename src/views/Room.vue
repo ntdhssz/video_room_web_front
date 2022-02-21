@@ -426,6 +426,12 @@ export default {
     window.removeEventListener('unload', e => this.closeWS())
     clearInterval(this.updateTime);
     this.socket.close()
+    this.pc.close()
+    this.pc.onicecandidate = null
+    this.pc.ontrack = null
+    this.localStream.getTracks().forEach((track) => {
+      track.stop()
+    })
   }
 }
 </script>
