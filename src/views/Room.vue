@@ -16,6 +16,7 @@
         </el-col>
       </el-row>
       <el-row>
+        <audio id="remoteAudio" autoplay></audio>
         <el-col :span="16" :offset=1>
           <video-player
             class="video-player vjs-custom-skin"
@@ -95,6 +96,7 @@
 <script>
 import {enterRoom} from "../api/enterRoom"
 import {getRoomUser} from "../api/getRoomUser"
+
 let md5 = require('md5-node')
 
 export default {
@@ -110,7 +112,10 @@ export default {
       chatText: '',
       emptyChat: false,
       playTime: 0,
-      updateTime: ''
+      updateTime: '',
+      localStream: undefined,
+      remoteAudio: {},
+      pc: null
     }
   },
   mounted() {
@@ -123,9 +128,10 @@ export default {
       }
       _this.socket.send(JSON.stringify(nowTimeInfo))
     }, 3000)
+    this.getUserMedia()
+    this.remoteAudio = document.getElementById('remoteAudio')
     this.$nextTick(function () {
       _this.getRoomInfo(this.$route.params.id)
-      _this.socket = new WebSocket('ws://video_room.bricktool.top/ws')
       _this.socket.onmessage = function (message) {
         let videoPlayer = _this.$refs.videoPlayer.player
         let response = JSON.parse(message.data)
@@ -165,6 +171,43 @@ export default {
                 }
               })
             })
+            if (this.pc) {
+            }
+            break
+          case 'offer':
+            console.log('offer')
+            _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
+            _this.pc.createAnswer().then((desc) => {
+              _this.pc.setLocalDescription((desc) => {
+                console.log(desc)
+              }).catch((error) => {
+                console.log(error)
+              })
+              let answerInfo = {
+                'method': 'answer',
+                'room_id': _this.roomId,
+                'user_id': localStorage.getItem('id'),
+                'to_user_id': response.user_id,
+                'desc': desc
+              }
+              _this.socket.send(JSON.stringify(answerInfo))
+            }).catch((error) => {
+              console.log(error)
+            })
+            break
+          case 'answer':
+            console.log('answer')
+            _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
+            break
+          case 'candidate':
+            console.log('candidate')
+            let candidate = new RTCIceCandidate({
+              sdpMLineIndex: response.label,
+              sdpMid: response.id,
+              candidate: response.candidate
+            })
+
+            _this.pc.addIceCandidate(candidate)
             break
           case 'chat':
             _this.chatList.push(response)
@@ -255,6 +298,56 @@ export default {
     }
   },
   methods: {
+    async getUserMedia() {
+        try {
+          let _this = this
+          this.localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
+          this.pc = new RTCPeerConnection()
+          this.pc.onicecandidate = (e) => {
+            if (e.candidate) {
+              let iceCandidateInfo = {
+                'method': 'candidate',
+                'room_id': _this.roomId,
+                'user_id': localStorage.getItem('id'),
+                'label': e.candidate.sdpMLineIndex,
+                'id': e.candidate.sdpMid,
+                'candidate': e.candidate.candidate
+              }
+              this.socket.send(JSON.stringify(iceCandidateInfo))
+            }
+          }
+          this.pc.ontrack = (e) => {
+            if (e && e.streams[0]) {
+              console.log('ontrack')
+              _this.remoteAudio.srcObject = null;
+              _this.remoteAudio.srcObject = e.streams[0];
+              console.log(_this.pc)
+            }
+          }
+          this.pc.oniceconnectionstatechange = (evt) => {
+            console.log('state:' + evt.target.iceConnectionState)
+          }
+          this.localStream.getTracks().forEach((track) => {
+            _this.pc.addTrack(track, this.localStream)
+          })
+          this.pc.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
+            this.pc.setLocalDescription(desc).then(() => {
+              console.log(desc)
+            }).catch((error) => {
+              console.log(error)
+            })
+            let offerInfo = {
+              'method': 'offer',
+              'room_id': _this.roomId,
+              'user_id': localStorage.getItem('id'),
+              'desc': desc
+            }
+            _this.socket.send(JSON.stringify(offerInfo))
+          })
+        } catch (error) {
+          console.log('getUserMedia error: ' + error)
+        }
+    },
     getRoomInfo(id) {
       enterRoom(id).then(res => {
         let data = res.data.data
