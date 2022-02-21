@@ -84,6 +84,9 @@
                 <el-button slot="reference" @click="sendChat()">
                   发送
                 </el-button>
+                <el-button slot="reference" @click="call()">
+                  发送
+                </el-button>
               </el-popover>
             </div>
           </div>
@@ -128,8 +131,8 @@ export default {
       }
       _this.socket.send(JSON.stringify(nowTimeInfo))
     }, 3000)
-    this.getUserMedia()
     this.remoteAudio = document.getElementById('remoteAudio')
+    this.getUserMedia()
     this.$nextTick(function () {
       _this.getRoomInfo(this.$route.params.id)
       _this.socket = new WebSocket('ws://video-room.bricktool.top/ws')
@@ -208,6 +211,7 @@ export default {
               candidate: response.candidate
             })
 
+            console.log(candidate)
             _this.pc.addIceCandidate(candidate)
             break
           case 'chat':
@@ -303,8 +307,14 @@ export default {
         try {
           let _this = this
           this.localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-          this.pc = new RTCPeerConnection()
+          this.pc = new RTCPeerConnection({
+            "iceServers": [{
+              "url": "stun:stun.l.google.com:19302"
+            }]
+          })
           this.pc.onicecandidate = (e) => {
+            console.log('send candidate')
+            console.log(e.candidate)
             if (e.candidate) {
               let iceCandidateInfo = {
                 'method': 'candidate',
@@ -326,28 +336,31 @@ export default {
             }
           }
           this.pc.oniceconnectionstatechange = (evt) => {
-            console.log('state:' + evt.target.iceConnectionState)
+            console.log(evt.target.connectionState)
           }
           this.localStream.getTracks().forEach((track) => {
             _this.pc.addTrack(track, this.localStream)
           })
-          this.pc.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
-            this.pc.setLocalDescription(desc).then(() => {
-              console.log(desc)
-            }).catch((error) => {
-              console.log(error)
-            })
-            let offerInfo = {
-              'method': 'offer',
-              'room_id': _this.roomId,
-              'user_id': localStorage.getItem('id'),
-              'desc': desc
-            }
-            _this.socket.send(JSON.stringify(offerInfo))
-          })
         } catch (error) {
           console.log('getUserMedia error: ' + error)
         }
+    },
+    call() {
+      let _this = this
+      this.pc.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
+        this.pc.setLocalDescription(desc).then(() => {
+          console.log(desc)
+        }).catch((error) => {
+          console.log(error)
+        })
+        let offerInfo = {
+          'method': 'offer',
+          'room_id': _this.roomId,
+          'user_id': localStorage.getItem('id'),
+          'desc': desc
+        }
+        _this.socket.send(JSON.stringify(offerInfo))
+      })
     },
     getRoomInfo(id) {
       enterRoom(id).then(res => {
