@@ -16,7 +16,6 @@
         </el-col>
       </el-row>
       <el-row>
-        <audio id="remoteAudio" autoplay></audio>
         <el-col :span="16" :offset=1>
           <video-player
             class="video-player vjs-custom-skin"
@@ -92,6 +91,7 @@
           </div>
         </el-col>
       </el-row>
+      <div ref="audio-box"></div>
     </div>
   </div>
 </template>
@@ -118,7 +118,7 @@ export default {
       updateTime: '',
       localStream: undefined,
       remoteAudio: {},
-      pc: null
+      peers: {}
     }
   },
   mounted() {
@@ -132,7 +132,6 @@ export default {
       _this.socket.send(JSON.stringify(nowTimeInfo))
     }, 3000)
     this.remoteAudio = document.getElementById('remoteAudio')
-    this.getUserMedia()
     this.$nextTick(function () {
       _this.getRoomInfo(this.$route.params.id)
       _this.socket = new WebSocket('wss://video-room.bricktool.top/ws')
@@ -153,6 +152,14 @@ export default {
                 _this.roomUserList.push(data)
               })
             }
+            _this.getUserMedia().then((stream) => {
+              _this.localStream = stream
+              for (let key in response['user_id_list']) {
+                if (response['user_id_list'][key] !== localStorage.getItem('id')) {
+                  _this.sendOffer(response['user_id_list'][key])
+                }
+              }
+            })
             break
           case 'user_enter':
             getRoomUser(response['user_id']).then(res => {
@@ -175,14 +182,12 @@ export default {
                 }
               })
             })
-            if (this.pc) {
-            }
             break
           case 'offer':
-            console.log('offer')
-            _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
-            _this.pc.createAnswer().then((desc) => {
-              _this.pc.setLocalDescription(desc).then(() => {
+            let peer = _this.createRTCPeerConnect(response.user_id)
+            peer.setRemoteDescription(new RTCSessionDescription(response.desc))
+            peer.createAnswer().then((desc) => {
+              peer.setLocalDescription(desc).then(() => {
                 console.log(desc)
                 let answerInfo = {
                   'method': 'answer',
@@ -200,8 +205,7 @@ export default {
             })
             break
           case 'answer':
-            console.log('answer')
-            _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
+            _this.peers[response.user_id].setRemoteDescription(new RTCSessionDescription(response.desc))
             break
           case 'candidate':
             let candidate = new RTCIceCandidate({
@@ -209,7 +213,7 @@ export default {
               sdpMid: response.id,
               candidate: response.candidate
             })
-            _this.pc.addIceCandidate(candidate)
+            _this.peers[response.user_id].addIceCandidate(candidate)
             break
           case 'chat':
             _this.chatList.push(response)
@@ -256,11 +260,9 @@ export default {
                     msgBox.scrollTop = msgBox.scrollHeight
                   }
                 })
-                console.log(value, index)
                 _this.roomUserList.splice(index, 1)
               }
             })
-
         }
       }
       _this.socket.onopen = function () {
@@ -301,57 +303,13 @@ export default {
   },
   methods: {
     async getUserMedia() {
-        try {
-          let _this = this
-          this.localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
-          this.pc = new RTCPeerConnection({
-            "iceServers": [{
-              "url": "stun:stun.bricktool.top"
-            },{
-              "url": "turn:stun.bricktool.top",
-              "username": "ntdhssz",
-              "credential": "ntdhssz123"
-            }]
-          })
-          this.pc.onicecandidate = (e) => {
-            if (e.candidate) {
-              let iceCandidateInfo = {
-                'method': 'candidate',
-                'room_id': _this.roomId,
-                'user_id': localStorage.getItem('id'),
-                'label': e.candidate.sdpMLineIndex,
-                'id': e.candidate.sdpMid,
-                'candidate': e.candidate.candidate
-              }
-              this.socket.send(JSON.stringify(iceCandidateInfo))
-            }
-          }
-          this.pc.ontrack = (e) => {
-            if (e && e.streams[0]) {
-              console.log('ontrack')
-              _this.remoteAudio.srcObject = null;
-              _this.remoteAudio.srcObject = e.streams[0];
-              console.log(e)
-            }
-          }
-          this.pc.oniceconnectionstatechange = (evt) => {
-            console.log(evt.target)
-            if (evt.target.getRemoteStreams() && evt.target.getRemoteStreams()[0]) {
-              _this.remoteAudio.srcObject = null;
-              _this.remoteAudio.srcObject = evt.target.getRemoteStreams()[0];
-            }
-          }
-          this.localStream.getTracks().forEach((track) => {
-            _this.pc.addTrack(track, this.localStream)
-          })
-        } catch (error) {
-          console.log('getUserMedia error: ' + error)
-        }
+          return navigator.mediaDevices.getUserMedia({audio: true, video: false})
     },
-    call() {
+    sendOffer(userId){
       let _this = this
-      this.pc.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
-        this.pc.setLocalDescription(desc).then(() => {
+      let peer = this.createRTCPeerConnect(userId)
+      peer.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
+        peer.setLocalDescription(desc).then(() => {
           console.log(desc)
         }).catch((error) => {
           console.log(error)
@@ -360,10 +318,60 @@ export default {
           'method': 'offer',
           'room_id': _this.roomId,
           'user_id': localStorage.getItem('id'),
+          'to_user_id': userId,
           'desc': desc
         }
         _this.socket.send(JSON.stringify(offerInfo))
       })
+    },
+    createRTCPeerConnect(userId) {
+      let _this = this
+      let audioBox = this.$refs['audio-box']
+      let peer = new RTCPeerConnection({
+        "iceServers": [{
+          "url": "stun:stun.bricktool.top"
+        },{
+          "url": "turn:stun.bricktool.top",
+          "username": "ntdhssz",
+          "credential": "ntdhssz123"
+        }]
+      })
+      peer.onicecandidate = (e) => {
+        if (e.candidate) {
+          let iceCandidateInfo = {
+            'method': 'candidate',
+            'room_id': _this.roomId,
+            'user_id': localStorage.getItem('id'),
+            'to_user_id': userId,
+            'label': e.candidate.sdpMLineIndex,
+            'id': e.candidate.sdpMid,
+            'candidate': e.candidate.candidate
+          }
+          this.socket.send(JSON.stringify(iceCandidateInfo))
+        }
+      }
+      peer.ontrack = (e) => {
+        if (e && e.streams[0]) {
+          let audios = document.querySelector('#audio' + userId)
+          if (audios) {
+            audios.srcObject = e.streams[0]
+          } else {
+            let audio = document.createElement('audio')
+            audio.hidden = true
+            audio.autoplay = true
+            audio.srcObject = e.streams[0]
+            audio.id = 'audio' + userId
+            audioBox.append(audio)
+          }
+        }
+      }
+      peer.oniceconnectionstatechange = (evt) => {
+        console.log(evt.target)
+      }
+      this.localStream.getTracks().forEach((track) => {
+        peer.addTrack(track, this.localStream)
+      })
+      return this.peers[userId] = peer
     },
     getRoomInfo(id) {
       enterRoom(id).then(res => {
@@ -429,9 +437,9 @@ export default {
     window.removeEventListener('unload', e => this.closeWS())
     clearInterval(this.updateTime);
     this.socket.close()
-    this.pc.close()
-    this.pc.onicecandidate = null
-    this.pc.ontrack = null
+    for (let key in this.peers) {
+      this.peers[key].close()
+    }
     this.localStream.getTracks().forEach((track) => {
       track.stop()
     })
