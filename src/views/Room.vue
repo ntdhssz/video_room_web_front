@@ -331,11 +331,15 @@ export default {
               console.log('ontrack')
               _this.remoteAudio.srcObject = null;
               _this.remoteAudio.srcObject = e.streams[0];
-              console.log(_this.pc)
+              console.log(e)
             }
           }
           this.pc.oniceconnectionstatechange = (evt) => {
-            console.log(evt.target.connectionState)
+            console.log(evt.target)
+            if (evt.target.getRemoteStreams() && evt.target.getRemoteStreams()[0]) {
+              _this.remoteAudio.srcObject = null;
+              _this.remoteAudio.srcObject = evt.target.getRemoteStreams()[0];
+            }
           }
           this.localStream.getTracks().forEach((track) => {
             _this.pc.addTrack(track, this.localStream)

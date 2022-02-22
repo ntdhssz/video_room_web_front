@@ -94,7 +94,6 @@ export default {
 
 <style scoped>
 #login-page {
-  background: url("../assets/img/bg.jpg") no-repeat;
   height: 100%;
   width: 100%;
   background-size: cover;
