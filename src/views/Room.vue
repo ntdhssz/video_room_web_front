@@ -72,6 +72,8 @@
                 resize="none"
                 v-model="chatText"
                 maxlength="30"
+                @keydown.enter.native="sendChat()"
+                oninput="value = value.replace(/[\r\n]/g, '')"
               >
               </el-input>
               <el-popover
@@ -81,9 +83,6 @@
                 trigger="manual"
               >
                 <el-button slot="reference" @click="sendChat()">
-                  发送
-                </el-button>
-                <el-button slot="reference" @click="call()">
                   发送
                 </el-button>
               </el-popover>
@@ -303,9 +302,9 @@ export default {
   },
   methods: {
     async getUserMedia() {
-          return navigator.mediaDevices.getUserMedia({audio: true, video: false})
+      return navigator.mediaDevices.getUserMedia({audio: true, video: false})
     },
-    sendOffer(userId){
+    sendOffer(userId) {
       let _this = this
       let peer = this.createRTCPeerConnect(userId)
       peer.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
@@ -330,7 +329,7 @@ export default {
       let peer = new RTCPeerConnection({
         "iceServers": [{
           "url": "stun:stun.bricktool.top"
-        },{
+        }, {
           "url": "turn:stun.bricktool.top",
           "username": "ntdhssz",
           "credential": "ntdhssz123"
@@ -388,8 +387,10 @@ export default {
         'user_id': localStorage.getItem('id'),
         'chat_text': this.chatText
       }
-      if (chatInfo.chat_text === '') {
+      let checkChatText = this.chatText.replace(/\ +/g, "")
+      if (checkChatText === '') {
         this.emptyChat = true
+        this.chatText = ''
         setTimeout(() => {
           this.emptyChat = false
         }, 2000)
