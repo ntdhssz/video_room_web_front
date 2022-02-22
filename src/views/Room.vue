@@ -306,7 +306,11 @@ export default {
           this.localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
           this.pc = new RTCPeerConnection({
             "iceServers": [{
-              "url": "stun:stun.l.google.com:19302"
+              "url": "stun:stun.bricktool.top"
+            },{
+              "url": "turn:stun.bricktool.top",
+              "username": "ntdhssz",
+              "credential": "ntdhssz123"
             }]
           })
           this.pc.onicecandidate = (e) => {
