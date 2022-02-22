@@ -182,19 +182,19 @@ export default {
             console.log('offer')
             _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
             _this.pc.createAnswer().then((desc) => {
-              _this.pc.setLocalDescription((desc) => {
+              _this.pc.setLocalDescription(desc).then(() => {
                 console.log(desc)
+                let answerInfo = {
+                  'method': 'answer',
+                  'room_id': _this.roomId,
+                  'user_id': localStorage.getItem('id'),
+                  'to_user_id': response.user_id,
+                  'desc': desc
+                }
+                _this.socket.send(JSON.stringify(answerInfo))
               }).catch((error) => {
                 console.log(error)
               })
-              let answerInfo = {
-                'method': 'answer',
-                'room_id': _this.roomId,
-                'user_id': localStorage.getItem('id'),
-                'to_user_id': response.user_id,
-                'desc': desc
-              }
-              _this.socket.send(JSON.stringify(answerInfo))
             }).catch((error) => {
               console.log(error)
             })
@@ -204,14 +204,11 @@ export default {
             _this.pc.setRemoteDescription(new RTCSessionDescription(response.desc))
             break
           case 'candidate':
-            console.log('candidate')
             let candidate = new RTCIceCandidate({
               sdpMLineIndex: response.label,
               sdpMid: response.id,
               candidate: response.candidate
             })
-
-            console.log(candidate)
             _this.pc.addIceCandidate(candidate)
             break
           case 'chat':
@@ -313,8 +310,6 @@ export default {
             }]
           })
           this.pc.onicecandidate = (e) => {
-            console.log('send candidate')
-            console.log(e.candidate)
             if (e.candidate) {
               let iceCandidateInfo = {
                 'method': 'candidate',
