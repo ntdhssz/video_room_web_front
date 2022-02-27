@@ -23,22 +23,22 @@
         >
           观影室
         </el-menu-item>
-        <el-menu-item
-          v-if="this.is_login"
-          style="float: right"
-          key="5"
-          index="/room/create"
-        >
-          创建房间
-        </el-menu-item>
-        <el-menu-item
-          v-if="this.is_login"
-          style="float: right"
-          key="/room/my"
-          index="/room/my"
-        >
-          我的
-        </el-menu-item>
+<!--        <el-menu-item-->
+<!--          v-if="this.is_login"-->
+<!--          style="float: right"-->
+<!--          key="5"-->
+<!--          index="/room/create"-->
+<!--        >-->
+<!--          创建房间-->
+<!--        </el-menu-item>-->
+<!--        <el-menu-item-->
+<!--          v-if="this.is_login"-->
+<!--          style="float: right"-->
+<!--          key="/room/my"-->
+<!--          index="/room/my"-->
+<!--        >-->
+<!--          我的-->
+<!--        </el-menu-item>-->
         <div
           v-if="this.is_login"
           style="float: right; margin-top: 5px;"
@@ -92,7 +92,7 @@ export default {
         {index: "/index", title: "首页"},
         {index: "/index?type=1", title: "电影"},
         {index: "/index?type=2", title: "动画"},
-        {index: "/chat", title: "聊天室"},
+        // {index: "/chat", title: "聊天室"},
       ]
     }
   },
