@@ -1,4 +1,4 @@
-import request from '../utils/request'
+import request from '../../utils/request'
 
 export function aliveRoom(query_info) {
   return request({
@@ -10,5 +10,5 @@ export function aliveRoom(query_info) {
       'page': query_info.page,
       'page_size': query_info.pageSize,
     }
-  })
+  });
 }

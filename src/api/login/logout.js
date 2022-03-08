@@ -1,5 +1,5 @@
-import request from '../utils/request'
-import store from "../store";
+import request from '../../utils/request'
+import store from "../../store";
 
 export function logout() {
   return request({
@@ -9,5 +9,5 @@ export function logout() {
       id: store.state.id,
       token: store.state.token
     }
-  })
+  });
 }

@@ -12,7 +12,7 @@
           <span style="font-size: 15px; color: #999; float: left">{{ roomInfo.nick_name }}</span>
         </el-col>
         <el-col :span="5">
-          <span style="font-size: 15px; color: #999; float: left">{{ roomInfo.created_at }}</span>
+          <span style="font-size: 15px; color: #999; float: left">{{ roomInfo.created_date_time }}</span>
         </el-col>
       </el-row>
       <el-row>
@@ -96,13 +96,17 @@
 </template>
 
 <script>
-import {enterRoom} from "../api/enterRoom"
-import {getRoomUser} from "../api/getRoomUser"
-
-let md5 = require('md5-node')
+import Header from "../components/Header";
+import {sendChat} from "../method/room/sendChat";
+import {enterRoom} from "../api/room/enterRoom";
+import {createWebSocketConnect} from "../method/room/createWebSocketConnect";
+import {onPlayerStateChanged} from "../method/room/onPlayerStateChanged";
 
 export default {
   name: "Room",
+  components: {
+    Header
+  },
   data() {
     return {
       roomInfo: [],
@@ -115,170 +119,10 @@ export default {
       emptyChat: false,
       playTime: 0,
       updateTime: '',
-      localStream: undefined,
-      remoteAudio: {},
-      peers: {}
-    }
-  },
-  mounted() {
-    let _this = this
-    this.updateTime = setInterval(function () {
-      let nowTimeInfo = {
-        'method': 'now_time',
-        'time': _this.playTime,
-        'room_id': _this.roomId
-      }
-      _this.socket.send(JSON.stringify(nowTimeInfo))
-    }, 3000)
-    this.remoteAudio = document.getElementById('remoteAudio')
-    this.$nextTick(function () {
-      _this.getRoomInfo(this.$route.params.id)
-      _this.socket = new WebSocket('wss://video-room.bricktool.top/ws')
-      _this.socket.onmessage = function (message) {
-        let videoPlayer = _this.$refs.videoPlayer.player
-        let response = JSON.parse(message.data)
-        switch (response['method']) {
-          case 'start':
-            videoPlayer.currentTime(response['time'])
-            if (response['play_state'] === 'play') {
-              videoPlayer.play()
-            } else {
-              videoPlayer.pause()
-            }
-            for (let key in response['user_id_list']) {
-              getRoomUser(response['user_id_list'][key]).then(res => {
-                let data = res.data.data
-                _this.roomUserList.push(data)
-              })
-            }
-            _this.getUserMedia().then((stream) => {
-              _this.localStream = stream
-              for (let key in response['user_id_list']) {
-                if (response['user_id_list'][key] !== localStorage.getItem('id')) {
-                  _this.sendOffer(response['user_id_list'][key])
-                }
-              }
-            })
-            break
-          case 'user_enter':
-            getRoomUser(response['user_id']).then(res => {
-              let data = res.data.data
-              _this.roomUserList.push(data)
-              let enterInfo = {
-                'md5': md5(data.nick_name + Date.now()),
-                'nick_name': '系统通知',
-                'chat_text': '用户' + data.nick_name + '进入房间'
-              }
-              _this.chatList.push(enterInfo)
-              let msgBox = _this.$el.querySelector('#msg-box')
-              let sTop = msgBox.scrollTop
-              let cHeight = msgBox.clientHeight
-              let sHeight = msgBox.scrollHeight
-              let onBottom = (sHeight === sTop + cHeight)
-              _this.$nextTick(() => {
-                if (onBottom) {
-                  msgBox.scrollTop = msgBox.scrollHeight
-                }
-              })
-            })
-            break
-          case 'offer':
-            let peer = _this.createRTCPeerConnect(response.user_id)
-            peer.setRemoteDescription(new RTCSessionDescription(response.desc))
-            peer.createAnswer().then((desc) => {
-              peer.setLocalDescription(desc).then(() => {
-                console.log(desc)
-                let answerInfo = {
-                  'method': 'answer',
-                  'room_id': _this.roomId,
-                  'user_id': localStorage.getItem('id'),
-                  'to_user_id': response.user_id,
-                  'desc': desc
-                }
-                _this.socket.send(JSON.stringify(answerInfo))
-              }).catch((error) => {
-                console.log(error)
-              })
-            }).catch((error) => {
-              console.log(error)
-            })
-            break
-          case 'answer':
-            _this.peers[response.user_id].setRemoteDescription(new RTCSessionDescription(response.desc))
-            break
-          case 'candidate':
-            let candidate = new RTCIceCandidate({
-              sdpMLineIndex: response.label,
-              sdpMid: response.id,
-              candidate: response.candidate
-            })
-            _this.peers[response.user_id].addIceCandidate(candidate)
-            break
-          case 'chat':
-            _this.chatList.push(response)
-            let msgBox = _this.$el.querySelector('#msg-box')
-            let sTop = msgBox.scrollTop
-            let cHeight = msgBox.clientHeight
-            let sHeight = msgBox.scrollHeight
-            let onBottom = (sHeight === sTop + cHeight)
-            _this.$nextTick(() => {
-              if (onBottom) {
-                msgBox.scrollTop = msgBox.scrollHeight
-              }
-            })
-            break
-          case 'now_time':
-            videoPlayer.currentTime(response['time'])
-            break
-          case 'play_state':
-            if (response['play_state'] === 'play') {
-              videoPlayer.play()
-            } else {
-              videoPlayer.pause()
-            }
-            break
-          case 'timeupdate':
-            videoPlayer.currentTime(response['time'])
-            break
-          case 'user_leave':
-            _this.roomUserList.forEach((value, index) => {
-              if (value.id === parseInt(response['user_id'])) {
-                let enterInfo = {
-                  'md5': md5(value.nick_name + Date.now()),
-                  'nick_name': '系统通知',
-                  'chat_text': '用户' + value.nick_name + '离开房间'
-                }
-                _this.chatList.push(enterInfo)
-                let msgBox = _this.$el.querySelector('#msg-box')
-                let sTop = msgBox.scrollTop
-                let cHeight = msgBox.clientHeight
-                let sHeight = msgBox.scrollHeight
-                let onBottom = (sHeight === sTop + cHeight)
-                _this.$nextTick(() => {
-                  if (onBottom) {
-                    msgBox.scrollTop = msgBox.scrollHeight
-                  }
-                })
-                _this.roomUserList.splice(index, 1)
-              }
-            })
-        }
-      }
-      _this.socket.onopen = function () {
-        let startInfo = {
-          'method': 'start',
-          'room_id': _this.roomId,
-          'user_id': localStorage.getItem('id')
-        }
-        _this.socket.send(JSON.stringify(startInfo))
-      }
-      window.addEventListener('unload', e => _this.closeWS())
-    })
-  },
-  computed: {
-    playerOptions() {
-      return {
-        playbackRates: [0.7, 1.0, 1.5, 2.0],
+      localStream: null,
+      peers: {},
+      videoPlayer: null,
+      playerOptions: {
         autoplay: false,
         muted: true,
         loop: false,
@@ -287,10 +131,9 @@ export default {
         fluid: false,
         sources: [{
           type: "video/mp4",
-          src: this.videoUrl
+          src: "base"
         }],
         height: 700,
-        notSupportedMessage: '此视频暂无法播放，请稍后再试',
         controlBar: {
           timeDivider: true,
           durationDisplay: true,
@@ -300,160 +143,44 @@ export default {
       }
     }
   },
+  mounted() {
+    let _this = this;
+    this.$nextTick(function () {
+      _this.videoPlayer = _this.$refs.videoPlayer.player;
+      _this.enterRoom();
+      createWebSocketConnect(_this);
+    })
+  },
   methods: {
-    async getUserMedia() {
-      return navigator.mediaDevices.getUserMedia({audio: true, video: false})
-    },
-    sendOffer(userId) {
-      let _this = this
-      let peer = this.createRTCPeerConnect(userId)
-      peer.createOffer({offerToReceiveAudio: true, offerToReceiveVideo: false}).then((desc) => {
-        peer.setLocalDescription(desc).then(() => {
-          console.log(desc)
-        }).catch((error) => {
-          console.log(error)
-        })
-        let offerInfo = {
-          'method': 'offer',
-          'room_id': _this.roomId,
-          'user_id': localStorage.getItem('id'),
-          'to_user_id': userId,
-          'desc': desc
-        }
-        _this.socket.send(JSON.stringify(offerInfo))
-      })
-    },
-    createRTCPeerConnect(userId) {
-      let _this = this
-      let audioBox = this.$refs['audio-box']
-      let peer = new RTCPeerConnection({
-        "iceServers": [{
-          "url": "stun:stun.bricktool.top"
-        }, {
-          "url": "turn:stun.bricktool.top",
-          "username": "ntdhssz",
-          "credential": "ntdhssz123"
-        }]
-      })
-      peer.onicecandidate = (e) => {
-        if (e.candidate) {
-          let iceCandidateInfo = {
-            'method': 'candidate',
-            'room_id': _this.roomId,
-            'user_id': localStorage.getItem('id'),
-            'to_user_id': userId,
-            'label': e.candidate.sdpMLineIndex,
-            'id': e.candidate.sdpMid,
-            'candidate': e.candidate.candidate
-          }
-          this.socket.send(JSON.stringify(iceCandidateInfo))
-        }
-      }
-      peer.ontrack = (e) => {
-        if (e && e.streams[0]) {
-          let audios = document.querySelector('#audio' + userId)
-          if (audios) {
-            audios.srcObject = e.streams[0]
-          } else {
-            let audio = document.createElement('audio')
-            audio.hidden = true
-            audio.autoplay = true
-            audio.srcObject = e.streams[0]
-            audio.id = 'audio' + userId
-            audioBox.append(audio)
-          }
-        }
-      }
-      peer.oniceconnectionstatechange = (evt) => {
-        console.log(evt.target)
-      }
-      this.localStream.getTracks().forEach((track) => {
-        peer.addTrack(track, this.localStream)
-      })
-      return this.peers[userId] = peer
-    },
-    getRoomInfo(id) {
-      enterRoom(id).then(res => {
-        let data = res.data.data
-        this.roomInfo = data
-        this.videoUrl = data.video_url
-      })
-    },
     sendChat() {
-      let chatInfo = {
-        'method': 'chat',
-        'room_id': this.roomId,
-        'nick_name': localStorage.getItem('nick_name'),
-        'user_id': localStorage.getItem('id'),
-        'chat_text': this.chatText
-      }
-      let checkChatText = this.chatText.replace(/\ +/g, "")
-      if (checkChatText === '') {
-        this.emptyChat = true
-        this.chatText = ''
-        setTimeout(() => {
-          this.emptyChat = false
-        }, 2000)
-      } else {
-        this.socket.send(JSON.stringify(chatInfo))
-        this.chatText = ''
-      }
+      sendChat(this);
+    },
+    enterRoom() {
+      let _this = this;
+      enterRoom(this.roomId).then(res => {
+        let data = res.data.data;
+        _this.roomInfo = data;
+        _this.videoPlayer.src(data['video_url'])
+      });
     },
     onPlayerStateChanged(event) {
-      switch (Object.keys(event)[0]) {
-        case 'pause':
-        case 'play':
-          let playInfo = {
-            'method': 'play_state',
-            'state': Object.keys(event)[0],
-            'room_id': this.roomId
-          }
-          this.socket.send(JSON.stringify(playInfo))
-          break
-        case 'timeupdate':
-          if (Math.abs(this.playTime - event['timeupdate']) > 1) {
-            let timeUpdateInfo = {
-              'method': 'timeupdate',
-              'room_id': this.roomId,
-              'time': event['timeupdate']
-            }
-            this.socket.send(JSON.stringify(timeUpdateInfo))
-          }
-          this.playTime = event['timeupdate']
-          break
-      }
-    },
-    closeWS() {
-      let endInfo = {
-        'method': 'close',
-        'room_id': this.roomId,
-        'nick_name': localStorage.getItem('nick_name'),
-        'user_id': localStorage.getItem('id')
-      }
-      this.socket.send(JSON.stringify(endInfo))
+      onPlayerStateChanged(this, event);
     }
   },
   destroyed() {
-    this.closeWS()
-    window.removeEventListener('unload', e => this.closeWS())
     clearInterval(this.updateTime);
-    this.socket.close()
+    this.socket.close();
     for (let key in this.peers) {
-      this.peers[key].close()
+      this.peers[key].close();
     }
     this.localStream.getTracks().forEach((track) => {
-      track.stop()
-    })
+      track.stop();
+    });
   }
 }
 </script>
 
 <style>
-.bg-purple {
-  background: #d3dce6;
-  height: 100%
-}
-
 .video-player {
   width: 100%;
   height: 100%;

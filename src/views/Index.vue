@@ -1,10 +1,18 @@
 <template>
   <div>
     <Header></Header>
-    <el-row :gutter="10">
+    <el-row style="width: 50%; margin-left: 25%; margin-bottom: 30px;">
+      <el-input
+        placeholder="搜索房间（可搜索房间名、影片名、创建者名）回车搜索"
+        prefix-icon="el-icon-search"
+        v-model="queryInfo.keyword"
+        @keydown.enter.native="search()">
+      </el-input>
+    </el-row>
+    <el-row :gutter="10" style="width: 98%; margin-left: 1%;">
       <el-col
         :span="6"
-        v-for="(item, i) in room_list"
+        v-for="(item, i) in roomList"
         :key="i"
         style="margin-bottom: 10px"
       >
@@ -20,13 +28,16 @@
           >
           <el-row style="padding: 14px;">
             <el-col>
-              <div style="float: left; font-size: 20px; font-weight: bold">{{ item.title }}</div>
+              <div style="float: left">
+                <span style="font-size: 20px; font-weight: bold">{{ item.title }}</span>
+                <span style="font-size: 10px; color: grey">{{ item.video_name }}</span>
+              </div>
               <div style="float: right; font-size: 15px; color: #999;"><i
                 class="el-icon-user-solid"></i>{{ item.watching }}
               </div>
             </el-col>
             <el-col>
-              <div style="float: left; font-size: 13px">{{ $store.state.nick_name }}</div>
+              <div style="float: left; font-size: 13px">{{ item.nick_name }}</div>
               <time class="time" style="float: right">{{ item.created_at }}</time>
             </el-col>
           </el-row>
@@ -53,8 +64,8 @@
 </template>
 
 <script>
-import Header from "./Header";
-import {aliveRoom} from "../api/aliveRoom";
+import Header from "../components/Header";
+import {aliveRoom} from "../api/index/aliveRoom";
 
 export default {
   name: "Index",
@@ -64,22 +75,22 @@ export default {
   watch: {
     '$route': {
       handler() {
-        this.query_info.page = 1
-        this.room_list = []
-        this.onPullDown = true
-        this.onFooter = false
-        window.addEventListener('scroll', this.scroll, false)
-        this.getAliveRoom()
+        this.queryInfo.page = 1;
+        this.roomList = [];
+        this.onPullDown = true;
+        this.onFooter = false;
+        window.addEventListener('scroll', this.scroll, false);
+        this.getAliveRoom();
       }
     }
   },
   mounted: function () {
-    window.addEventListener('scroll', this.scroll, false)
+    window.addEventListener('scroll', this.scroll, false);
   },
   data() {
     return {
-      room_list: [],
-      query_info: {
+      roomList: [],
+      queryInfo: {
         type: 0,
         keyword: '',
         page: 1,
@@ -87,29 +98,36 @@ export default {
       },
       onPullDown: true,
       onFooter: false
-    }
+    };
   },
   created() {
-    this.getAliveRoom()
+    this.getAliveRoom();
   },
   methods: {
     getAliveRoom() {
-      let loading = this.$loading({target: document.getElementById('loading'), fullscreen: false})
-      this.query_info.type = this.$route.query.type
-      this.query_info.keyword = this.$route.query.keyword
-      aliveRoom(this.query_info)
+      let _this = this;
+      let loading = this.$loading({target: document.getElementById('loading'), fullscreen: false});
+      if (typeof this.queryInfo.type === "undefined") {
+        this.queryInfo.type = 0;
+      } else if (this.queryInfo.type === "undefined") {
+        this.queryInfo.type = 0;
+      } else {
+        this.queryInfo.type = this.$route.query.type;
+      }
+      this.queryInfo.keyword = this.$route.query.keyword;
+      aliveRoom(this.queryInfo)
         .then(res => {
-          let records = res.data.data.records
-          this.room_list = this.room_list.concat(records);
-          loading.close()
+          let records = res.data.data.records;
+          _this.roomList = _this.roomList.concat(records);
+          loading.close();
           if (records.length <= 0) {
-            this.onFooter = true
-            this.onPullDown = false
-            window.removeEventListener('scroll', this.scroll)
+            _this.onFooter = true;
+            _this.onPullDown = false;
+            window.removeEventListener('scroll', _this.scroll);
           }
         })
         .catch(failResponse => {
-          loading.close()
+          loading.close();
         })
     },
     enterRoom(id) {
@@ -120,13 +138,27 @@ export default {
       let windowHeight = document.documentElement.clientHeight || document.body.clientHeight;
       let scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
       if (scrollTop + windowHeight >= scrollHeight && this.onPullDown === true) {
-        this.query_info.page = this.query_info.page + 1
-        this.getAliveRoom()
+        this.queryInfo.page = this.queryInfo.page + 1;
+        this.getAliveRoom();
       }
     },
+    search() {
+      let path = '/index';
+      if (typeof this.queryInfo.type === "undefined") {
+        path += '?type=' + '0';
+      } else if (this.queryInfo.type === "undefined"){
+        path += '?type=' + '0';
+      } else {
+        path += '?type=' + this.queryInfo.type;
+      }
+      if (this.queryInfo.keyword !== '') {
+        path += '&keyword=' + this.queryInfo.keyword;
+      }
+      this.$router.replace({path: path});
+    }
   },
   destroyed() {
-    window.removeEventListener('scroll', this.scroll)
+    window.removeEventListener('scroll', this.scroll);
   }
 }
 </script>
